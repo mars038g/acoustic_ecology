@@ -49,6 +49,8 @@ date_list <- list.files()
 date_list <- date_list[2:22]
 date_list <- date_list[-c(6,7)]
 
+breaks <- list(c(0,5),c(5,10),c(10,15),c(15,20))
+
 #H2 <- C, H1 <- T
 # for each sampling date
 for (i in 1:length(date_list)){
@@ -58,38 +60,47 @@ for (i in 1:length(date_list)){
   
   #for each sample in each sampling date
   for (j in 1:length(samples)){
-    sample <- readWave(samples[j])
-    sample <- as.matrix(sample@left)
-    sample <- w(sample)
     
-    #if sample recorded at lvl 40 do this:
-    if (grepl("40",folder)){
-      if (grepl("C",samples[j])){
-        sample <- cal(sample, sens = "H2", lvl = 40)
-        assign(paste(samples[j],folder), rms(sample@left))
-        print(paste(samples[j],"lvl 40"))
-        rm(sample)
-      } else if (grepl("T",samples[j])){
-        sample <- cal(sample, sens = "H1", lvl = 40)
-        assign(paste(samples[j],folder), rms(sample@left))
-        print(paste(samples[j],"lvl 40"))
-        rm(sample)
-      }
-    
-    #otherwise do this:
-    } else {
-      if (grepl("C",samples[j])){
-        sample <- cal(sample, sens = "H2", lvl = 50)
-        assign(paste(samples[j],folder), rms(sample@left))
-        print(paste(samples[j],"lvl 50"))
-        rm(sample)
-      } else if (grepl("T",samples[j])){
-        sample <- cal(sample, sens = "H1", lvl = 50)
-        assign(paste(samples[j],folder), rms(sample@left))
-        print(paste(samples[j],"lvl 50"))
-        rm(sample)
+    block <- c(1:4)
+    for (k in 1:length(block)){
+      sample <- readWave(samples[j], from = breaks[[k]][1],breaks[[k]][2], units = "minutes")
+      sample <- as.matrix(sample@left)
+      sample <- w(sample)
+      
+      #if sample recorded at lvl 40 do this:
+      if (grepl("40",folder)){
+        if (grepl("C",samples[j])){
+          sample <- cal(sample, sens = "H2", lvl = 40)
+          print(paste(block[k],samples[j],"lvl 40",folder))
+          sample <- ffilter(sample, from = 2000, to = 24000)
+          assign(paste("HP_",block[k],samples[j],folder), rms(sample))
+          rm(sample)
+        } else if (grepl("T",samples[j])){
+          sample <- cal(sample, sens = "H1", lvl = 40)
+          print(paste(block[k],samples[j],"lvl 40",folder))
+          sample <- ffilter(sample, from = 2000, to = 24000)
+          assign(paste("HP_",block[k],samples[j],folder), rms(sample))
+          rm(sample)
+        }
+        
+        #otherwise do this:
+      } else {
+        if (grepl("C",samples[j])){
+          sample <- cal(sample, sens = "H2", lvl = 50)
+          print(paste(block[k],samples[j],"lvl 50",folder))
+          sample <- ffilter(sample, from = 2000, to = 24000)
+          assign(paste("HP_",block[k],samples[j],folder), rms(sample))
+          rm(sample)
+        } else if (grepl("T",samples[j])){
+          sample <- cal(sample, sens = "H1", lvl = 50)
+          print(paste(block[k],samples[j],"lvl 50",folder))
+          sample <- ffilter(sample, from = 2000, to = 24000)
+          assign(paste("HP_",block[k],samples[j],folder), rms(sample))
+          rm(sample)
+        }
       }
     }
+
   }
 }
 
@@ -168,6 +179,8 @@ t_ts <- zoo(t_db$mean, t_db$date)
 
 
 #plot mean RMS SPL at control and treatment sites
+tiff(filename = "RMS_SPL_c_t.tiff", res = 300, height = 5, width = 6, units = "in")
+par(mar = c(5,4,4,1))
 plot(NULL, xlab = "Time" ,xlim = c(as.Date("2018-05-17"),as.Date("2018-07-10")),xaxt = "n",
      ylab = expression(paste("RMS SPL (dB re 1 ",mu,"Pa)")), ylim = c(100, 120), las = 1)
 abline(h = mean(ndf_db$spl_db), lty = 2, col = "grey80", lwd = 2)
@@ -180,6 +193,7 @@ points(c_ts, type = "o", lwd = 3, col = "black", xlab = "Time")
 errbar(c_db$date, c_db$mean, c_db$mean+c_db$sd,c_db$mean-c_db$sd, add = TRUE, lwd = 2)
 
 legend("topleft",c("Shrimp Added","No Shrimp Added"),
-       col = c("darkorange","black"), cex = 1.35, lwd = 3, bty = "n")
-axis(1, at = seq(as.Date("2018-05-17"),as.Date("2018-07-10"),"2 weeks"),
-     labels = seq(as.Date("2016-05-17"),as.Date("2016-07-10"),"2 weeks"))
+       col = c("darkorange","black"), cex = 1.2, lwd = 3, bty = "n")
+axis(1, at = seq(as.Date("2018-05-24"),as.Date("2018-07-10"),"2 weeks"),
+     labels = seq(as.Date("2016-05-24"),as.Date("2016-07-10"),"2 weeks"))
+dev.off()
